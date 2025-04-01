@@ -1,5 +1,5 @@
 package com.backend.LOC_Backend.controller;
-
+ 
 import com.backend.LOC_Backend.entity.Application;
 import com.backend.LOC_Backend.service.ApplicationService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,23 +8,26 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+ 
 import java.util.HashMap;
 import java.util.Map;
-
+ 
 @RestController
 @RequestMapping("/api/applications")
 @CrossOrigin(origins = "http://localhost:4200", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.OPTIONS}, allowedHeaders = "*")
 public class ApplicationController {
     @Autowired
     private ApplicationService applicationService;
-
+ 
     @PostMapping
     public ResponseEntity<Application> createApplication(@RequestBody Application application) {
+        // Validate credit score using the CSV (simulated Transunion data)
+        int validatedCreditScore = applicationService.validateCreditScore(application.getApplicantId(), application.getCreditScore());
+        application.setCreditScore(validatedCreditScore);
         Application savedApplication = applicationService.saveApplication(application);
         return ResponseEntity.ok(savedApplication);
     }
-
+ 
     @GetMapping("/list")
     public ResponseEntity<Map<String, Object>> getApplications(
             @RequestParam(defaultValue = "0") int page,
@@ -32,6 +35,7 @@ public class ApplicationController {
             @RequestParam(required = false) String applicantId,
             @RequestParam(required = false) String employmentStatus,
             @RequestParam(required = false) String province) {
+ 
         Pageable pageable = PageRequest.of(page, size);
         Page<Application> applicationPage = applicationService.getApplications(
                 pageable,
@@ -39,9 +43,10 @@ public class ApplicationController {
                 employmentStatus,
                 province
         );
-
+ 
         Map<String, Object> response = new HashMap<>();
         response.put("data", applicationPage.getContent().stream().map(app -> {
+            // Customize which fields you return
             Map<String, Object> filteredData = new HashMap<>();
             filteredData.put("applicantId", app.getApplicantId());
             filteredData.put("province", app.getProvince());
@@ -52,17 +57,17 @@ public class ApplicationController {
             filteredData.put("currentCreditLimit", app.getCurrentCreditLimit());
             filteredData.put("approved", app.getApproved());
             filteredData.put("interestRate", app.getInterestRate());
-
-
+            filteredData.put("approvedAmount", app.getApprovedAmount());
             return filteredData;
         }).toList());
+ 
         response.put("totalElements", applicationPage.getTotalElements());
         response.put("totalPages", applicationPage.getTotalPages());
         response.put("currentPage", applicationPage.getNumber());
-
+ 
         return ResponseEntity.ok(response);
     }
-
+ 
     @GetMapping("/{applicantId}")
     public ResponseEntity<Application> getApplicationById(@PathVariable String applicantId) {
         Application application = applicationService.getApplicationById(applicantId);
@@ -72,12 +77,12 @@ public class ApplicationController {
             return ResponseEntity.notFound().build();
         }
     }
-
+ 
     @PutMapping("/{applicantId}")
     public ResponseEntity<Application> updateApplication(
             @PathVariable String applicantId,
             @RequestBody Application application) {
-        application.setApplicantId(applicantId); // Ensure ID matches
+        application.setApplicantId(applicantId); // Ensure ID matches path
         Application updatedApplication = applicationService.saveApplication(application);
         return ResponseEntity.ok(updatedApplication);
     }
